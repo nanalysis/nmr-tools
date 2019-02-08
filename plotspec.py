@@ -24,6 +24,10 @@ def phasecorr(amp, phc0, phc1):
     return ampc
 
 
+def zerofill(amp, zeroing):
+    return np.append(amp, np.zeros(int(float(len(amp)) * zeroing)))
+
+
 def readdx(filename):
     f = open(filename, 'r')
     headOn = True
@@ -33,6 +37,10 @@ def readdx(filename):
     freq = 0.0
     phc0 = 0.0
     phc1 = 0.0
+    sweep_width = 0.0
+    zeroing = 0.0
+    apod = 0.0
+    spec_center = 0.0
     for line in f:
         if headOn:
             headtail = line.translate(None, '\n\r\t').split('=')
@@ -53,21 +61,37 @@ def readdx(filename):
                 freq = float(tail.translate(None, ' '))
             if head == '##$PHASECORRECTION':
                 phc0, phc1 = map(float, tail.translate(None, ' ').split(','))
+            if head == '##$SPECTRALCENTER':
+                spec_center = float(tail.strip())
+            if head == '##$SWEEPWIDTH':
+                sweep_width = float(tail.strip())
+            if head == '##$ZEROING':
+                zeroing = float(tail.strip())
+            if head == '##$APODIZATION':
+                apod = float(tail.strip())
         else:
             if line.strip()[0:2] == '##':
                 isReal = False
             else:
                 if isReal:
-                    real = np.append(real,
-                                     np.array(map(float, line.split()[1:])) *
-                                     float(factor[1]))
+                    real = np.append(real, np.array(map(float, line.split()[1:])) * float(factor[1]))
                 else:
-                    imag = np.append(imag,
-                                     np.array(map(float, line.split()[1:])) *
-                                     float(factor[2]))
+                    imag = np.append(imag, np.array(map(float, line.split()[1:])) * float(factor[2]))
     time = np.linspace(float(first[0]), float(last[0]), len(real))
     amp = real + 1.0j * imag
-    return time, amp, freq, phc0, phc1
+    settings = {}
+    settings['PhC0'] = phc0
+    settings['PhC1'] = phc1
+    settings['Freq'] = freq
+    settings['SweepWidth'] = sweep_width
+    settings['Zeroing'] = zeroing
+    settings['ApodizationFactor'] = apod
+    settings['SpectralCenter'] = spec_center
+    return time, amp, settings
+
+
+def indexToFreq(index, n, sampf, spec_center_hz):
+    return index * sampf / (float(n - 1)) - sampf * 0.5 + spec_center_hz
 
 
 def main():
@@ -78,12 +102,24 @@ def main():
     if not os.path.isfile(fname):
         print "Cannot open file ", fname
     # 1H
-    time, amp, ofreq, phc0, phc1 = readdx(fname)
+    time, amp, settings = readdx(fname)
+    ofreq = settings['Freq']
+    phc0 = settings['PhC0']
+    phc1 = settings['PhC1']
+    #sweep_width = settings['SweepWidth']
+    zeroing = settings['Zeroing']
+    #apod = settings['ApodizationFactor']
+    spec_center = settings['SpectralCenter']
+    spec_center_hz = spec_center * ofreq
+    # Zero Fill
+    amp = zerofill(amp, zeroing)
+    # Apodization
+    n = len(amp)
     dt = time[1] - time[0]
     sampf = 1.0 / dt
-    n = len(time)
-    mfreq = sampf * 0.5
-    xfreq = np.linspace(-mfreq, mfreq, n)
+    lowfreq = indexToFreq(0, n, sampf, spec_center_hz)
+    highfreq = indexToFreq(n - 1, n, sampf, spec_center_hz)
+    xfreq = np.linspace(lowfreq, highfreq, n)
     freq = phasecorr(fftshift(fft(amp)), phc0, phc1)
     genplot(xfreq, np.real(freq))
     return
