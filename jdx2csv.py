@@ -48,6 +48,7 @@ with open(sys.argv[1], 'r') as jdx:
                     yspercol = len(vals[1:])
                 reals = reals + vals[1:]
             if imagOn:
+                vals = map(float, line.split())
                 imags = imags + vals[1:]
     jdx.close()
     if len(reals) != len(imags) or dT == None or x0 == None:
