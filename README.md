@@ -8,3 +8,18 @@ jdx2spec.py   Convert 1D JCAMP-DX FID into an Spectrum in .csv with real and ima
 jdx2xri.py    Convert JDX FID to Time, Real & Imaginary table
 plotspec.py   Read a 1D JCAMP-DX FID and plots a spectrum applying the phase correction from ##$PHASECORRECTION
 ```
+
+# Setup
+
+```
+# Set up the virtual environment:
+uv venv venv
+uv pip install -r requirements.txt
+```
+
+# Installing pre-commit hooks
+
+```
+source venv/bin/activate
+pre-commit install
+```
